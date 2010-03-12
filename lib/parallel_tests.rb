@@ -16,6 +16,10 @@ class ParallelTests
     end
     [num_processes.to_i, prefix.to_s, options]
   end
+  
+  def self.exclude(names_array)
+    @@exclude_names = names_array
+  end
 
   # finds all tests and partitions them into groups
   def self.tests_in_groups(root, num)
@@ -93,7 +97,9 @@ class ParallelTests
   end
 
   def self.find_tests_with_sizes(root)
-    tests = find_tests(root).sort
+    tests = find_tests(root)
+    tests.reject!{|path| path.match(/#{@@exclude_names.join('|')}/)} if @@exclude_names
+    tests.sort!
 
     #TODO get the real root, atm this only works for complete runs when root point to e.g. real_root/spec
     runtime_file = File.join(root,'..','tmp','parallel_profile.log')
