@@ -25,30 +25,25 @@ class ParallelTests
   def self.tests_in_groups(root, num)
     tests_with_sizes = slow_specs_first(find_tests_with_sizes(root))
 
-    groups = []
-    current_group = current_size = 0
+    # always add to smallest group
+    groups = Array.new(num){{:tests => [], :size => 0}}
     tests_with_sizes.each do |test, size|
-      # inserts into next group if current is full and we are not in the last group
-      if (0.5*size + current_size) > group_size(tests_with_sizes, num) and num > current_group + 1
-        current_size = size
-        current_group += 1
-      else
-        current_size += size
-      end
-      groups[current_group] ||= []
-      groups[current_group] << test
+      smallest = groups.sort_by{|g| g[:size] }.first
+      smallest[:tests] << test
+      smallest[:size] += size
     end
-    groups.compact
+
+    groups.map{|g| g[:tests] }
   end
 
   def self.run_tests(test_files, process_number, options)
     require_list = test_files.map { |filename| "\"#{filename}\"" }.join(",")
-    cmd = "export RAILS_ENV=test ; ruby -Itest #{options} -e '[#{require_list}].each {|f| require f }'"
+    cmd = "RAILS_ENV=test ; export RAILS_ENV ; ruby -Itest #{options} -e '[#{require_list}].each {|f| require f }'"
     execute_command(cmd, process_number)
   end
 
   def self.execute_command(cmd, process_number)
-    cmd = "export TEST_ENV_NUMBER=#{test_env_number(process_number)} ; #{cmd}"
+    cmd = "TEST_ENV_NUMBER=#{test_env_number(process_number)} ; export TEST_ENV_NUMBER; #{cmd}"
     f = open("|#{cmd}", 'r')
     all = ''
     while char = f.getc
@@ -82,11 +77,11 @@ class ParallelTests
   def self.slow_specs_first(tests)
     tests.sort_by{|test, size| size }.reverse
   end
-  
+
   def self.line_is_result?(line)
     line =~ /\d+ failure/
   end
-  
+
   def self.line_is_failure?(line)
     line =~ /(\d{2,}|[1-9]) (failure|error)/
   end
